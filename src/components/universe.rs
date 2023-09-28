@@ -1,18 +1,11 @@
 // Based on https://rustwasm.github.io/book/game-of-life/introduction.html
-use std::{collections::HashMap, time::Duration};
-
 use color_eyre::eyre::Result;
-use crossterm::event::{KeyCode, KeyEvent};
 use itertools::Itertools;
 use ratatui::{prelude::*, widgets::*};
-use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::{Component, Frame};
-use crate::{
-  action::Action,
-  config::{Config, KeyBindings},
-};
+use crate::{action::Action, config::Config};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cell {
