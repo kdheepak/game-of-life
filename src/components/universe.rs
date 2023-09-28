@@ -68,7 +68,7 @@ impl Universe {
   }
 
   fn get_index(&self, row: usize, column: usize) -> usize {
-    (row * self.width + column) as usize
+    row * self.width + column
   }
 
   fn live_neighbor_count(&self, row: usize, column: usize) -> u8 {
