@@ -4,4 +4,4 @@
 
 Conway's game of life in a TUI
 
-![out](https://github.com/kdheepak/game-of-life/assets/1813121/9c8f3d1d-6700-4b93-8f94-003928151fae)
+![demo](https://github.com/kdheepak/game-of-life/assets/1813121/2a92c926-cda9-460d-8ed8-410f9e3da89f)
