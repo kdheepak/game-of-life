@@ -9,8 +9,8 @@ use crate::{action::Action, config::Config};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cell {
-  Dead,
-  Alive,
+  Dead(usize),
+  Alive(usize),
 }
 
 #[derive(Default)]
@@ -39,18 +39,19 @@ impl Universe {
         let next_cell = match (cell, live_neighbors) {
           // Rule 1: Any live cell with fewer than two live neighbours
           // dies, as if caused by underpopulation.
-          (Cell::Alive, x) if x < 2 => Cell::Dead,
+          (Cell::Alive(_), x) if x < 2 => Cell::Dead(0),
           // Rule 2: Any live cell with two or three live neighbours
           // lives on to the next generation.
-          (Cell::Alive, 2) | (Cell::Alive, 3) => Cell::Alive,
+          (Cell::Alive(i), 2) | (Cell::Alive(i), 3) => Cell::Alive(i.saturating_add(1)),
           // Rule 3: Any live cell with more than three live
           // neighbours dies, as if by overpopulation.
-          (Cell::Alive, x) if x > 3 => Cell::Dead,
+          (Cell::Alive(_), x) if x > 3 => Cell::Dead(0),
           // Rule 4: Any dead cell with exactly three live neighbours
           // becomes a live cell, as if by reproduction.
-          (Cell::Dead, 3) => Cell::Alive,
+          (Cell::Dead(_), 3) => Cell::Alive(0),
           // All other cells remain in the same state.
-          (otherwise, _) => otherwise,
+          (Cell::Alive(i), _) => Cell::Alive(i.saturating_add(1)),
+          (Cell::Dead(i), _) => Cell::Dead(i.saturating_add(1)),
         };
 
         next[idx] = next_cell;
@@ -75,7 +76,10 @@ impl Universe {
         let neighbor_row = (row + delta_row) % self.height;
         let neighbor_col = (column + delta_col) % self.width;
         let idx = self.get_index(neighbor_row, neighbor_col);
-        count += self.cells[idx] as u8;
+        count += match self.cells[idx] {
+          Cell::Alive(_) => 1,
+          Cell::Dead(_) => 0,
+        };
       }
     }
     count
@@ -86,8 +90,9 @@ impl Component for Universe {
   fn init(&mut self, area: Rect) -> Result<()> {
     (self.width, self.height) = (area.width as usize, area.height as usize * 2);
 
-    self.cells =
-      (0..self.width * self.height).map(|_| if rand::random::<bool>() { Cell::Alive } else { Cell::Dead }).collect();
+    self.cells = (0..self.width * self.height)
+      .map(|_| if rand::random::<bool>() { Cell::Alive(0) } else { Cell::Dead(0) })
+      .collect();
 
     Ok(())
   }
@@ -114,20 +119,60 @@ impl Component for Universe {
   fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
     let cells: Vec<Vec<Cell>> = self.cells.chunks(self.width).map(|chunk| chunk.to_vec()).collect();
     let mut grid = vec![];
+    let young = Color::Rgb(255, 213, 57);
+    let old = Color::Rgb(202, 32, 77);
+    let sick = Color::Reset;
+    let dead = Color::Reset;
     for (y, (line1, line2)) in cells.iter().tuples().enumerate() {
       for (x, (c1, c2)) in line1.iter().zip(line2.iter()).enumerate() {
         match (c1, c2) {
-          (Cell::Alive, Cell::Alive) => {
-            grid.push((x, y, '█'));
+          (Cell::Alive(0), Cell::Alive(0)) => {
+            grid.push((x, y, '▀', Style::default().fg(young).bg(young)));
           },
-          (Cell::Dead, Cell::Alive) => {
-            grid.push((x, y, '▄'));
+          (Cell::Alive(0), Cell::Alive(_)) => {
+            grid.push((x, y, '▀', Style::default().fg(young).bg(old)));
           },
-          (Cell::Alive, Cell::Dead) => {
-            grid.push((x, y, '▀'));
+          (Cell::Alive(_), Cell::Alive(0)) => {
+            grid.push((x, y, '▀', Style::default().fg(old).bg(young)));
           },
-          (Cell::Dead, Cell::Dead) => {
-            grid.push((x, y, ' '));
+          (Cell::Alive(_), Cell::Alive(_)) => {
+            grid.push((x, y, '▀', Style::default().fg(old).bg(old)));
+          },
+          (Cell::Dead(0), Cell::Alive(0)) => {
+            grid.push((x, y, '▄', Style::default().bg(sick).fg(young)));
+          },
+          (Cell::Dead(_), Cell::Alive(0)) => {
+            grid.push((x, y, '▄', Style::default().bg(dead).fg(young)));
+          },
+          (Cell::Dead(0), Cell::Alive(_)) => {
+            grid.push((x, y, '▄', Style::default().bg(sick).fg(old)));
+          },
+          (Cell::Dead(_), Cell::Alive(_)) => {
+            grid.push((x, y, '▄', Style::default().bg(dead).fg(old)));
+          },
+          (Cell::Alive(0), Cell::Dead(0)) => {
+            grid.push((x, y, '▀', Style::default().fg(young).bg(sick)));
+          },
+          (Cell::Alive(0), Cell::Dead(_)) => {
+            grid.push((x, y, '▀', Style::default().fg(young).bg(dead)));
+          },
+          (Cell::Alive(_), Cell::Dead(0)) => {
+            grid.push((x, y, '▀', Style::default().fg(old).bg(sick)));
+          },
+          (Cell::Alive(_), Cell::Dead(_)) => {
+            grid.push((x, y, '▀', Style::default().fg(old).bg(dead)));
+          },
+          (Cell::Dead(0), Cell::Dead(0)) => {
+            grid.push((x, y, ' ', Style::default().fg(sick).bg(sick)));
+          },
+          (Cell::Dead(0), Cell::Dead(_)) => {
+            grid.push((x, y, ' ', Style::default().fg(sick).bg(dead)));
+          },
+          (Cell::Dead(_), Cell::Dead(0)) => {
+            grid.push((x, y, ' ', Style::default().fg(dead).bg(sick)));
+          },
+          (Cell::Dead(_), Cell::Dead(_)) => {
+            grid.push((x, y, ' ', Style::default().fg(dead).bg(dead)));
           },
         }
       }
@@ -138,12 +183,12 @@ impl Component for Universe {
 }
 
 struct Grid {
-  grid: Vec<(usize, usize, char)>,
+  grid: Vec<(usize, usize, char, Style)>,
 }
 
 impl Widget for Grid {
   fn render(self, area: Rect, buf: &mut Buffer) {
-    for (x, y, ch) in self.grid.iter() {
+    for (x, y, ch, style) in self.grid.iter() {
       if *x >= area.width as usize || *y >= area.height as usize {
         continue;
       }
@@ -151,6 +196,7 @@ impl Widget for Grid {
       let y = area.top() + *y as u16;
       let cell = buf.get_mut(x, y);
       cell.set_char(*ch);
+      cell.set_style(*style);
     }
   }
 }
