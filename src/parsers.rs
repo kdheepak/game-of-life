@@ -9,12 +9,6 @@ pub enum Cell {
   Alive(usize),
 }
 
-impl Into<bool> for Cell {
-  fn into(self) -> bool {
-    self == Cell::Alive(0)
-  }
-}
-
 impl From<bool> for Cell {
   fn from(value: bool) -> Self {
     if value {
@@ -89,7 +83,7 @@ impl Pattern {
       return Err(color_eyre::eyre::eyre!("Could not read file to string: {}", e));
     }
 
-    let file_type: FileType = FileType::from_filename(&filename).expect("Unrecognised file type.");
+    let file_type: FileType = FileType::from_filename(filename).expect("Unrecognised file type.");
 
     let pattern = match file_type {
       FileType::Life => todo!("Not implemented"),
@@ -145,7 +139,7 @@ pub fn parse_rle_file(s: &str) -> Result<Pattern> {
   let mut lines = s.lines().skip_while(|x| x.starts_with('#'));
 
   // x = m, y = n
-  let _header = match lines.next() {
+  match lines.next() {
     Some(v) => {
       if v.contains("x = ") && v.contains("y = ") {
         let v: Vec<&str> = v.splitn(3, ", ").collect();

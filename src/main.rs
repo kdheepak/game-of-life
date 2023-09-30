@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]
+#![allow(clippy::needless_range_loop)]
 
 pub mod action;
 pub mod app;

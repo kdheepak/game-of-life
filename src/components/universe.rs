@@ -25,9 +25,7 @@ pub struct Universe {
 
 impl Universe {
   pub fn new(filename: Option<PathBuf>) -> Self {
-    let mut s = Self::default();
-    s.filename = filename;
-    s
+    Self { filename, ..Self::default() }
   }
 
   pub fn pattern(&mut self, filename: &str) -> Result<()> {
