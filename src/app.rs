@@ -28,14 +28,12 @@ pub struct App {
   pub should_suspend: bool,
   pub mode: Mode,
   pub last_tick_key_events: Vec<KeyEvent>,
+  pub filename: Option<PathBuf>,
 }
 
 impl App {
   pub fn new(tick_rate: f64, frame_rate: f64, filename: Option<PathBuf>) -> Result<Self> {
-    let home = match filename {
-      Some(f) => Universe::new().from_pattern(&f.to_string_lossy())?,
-      None => Universe::new(),
-    };
+    let home = Universe::new(filename.clone());
     let config = Config::new()?;
     let mode = Mode::Home;
     Ok(Self {
@@ -47,6 +45,7 @@ impl App {
       config,
       mode,
       last_tick_key_events: Vec::new(),
+      filename,
     })
   }
 

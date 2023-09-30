@@ -1,4 +1,4 @@
-use std::iter;
+use std::{iter, path::PathBuf};
 
 // Based on https://rustwasm.github.io/book/game-of-life/introduction.html
 use color_eyre::eyre::Result;
@@ -19,28 +19,28 @@ pub struct Universe {
   config: Config,
   width: usize,
   height: usize,
-  cells: Vec<Cell>,
+  cells: Vec<Vec<Cell>>,
+  filename: Option<PathBuf>,
 }
 
 impl Universe {
-  pub fn new() -> Self {
-    Self::default()
+  pub fn new(filename: Option<PathBuf>) -> Self {
+    let mut s = Self::default();
+    s.filename = filename;
+    s
   }
 
-  pub fn from_pattern(mut self, filename: &str) -> Result<Self> {
+  pub fn pattern(&mut self, filename: &str) -> Result<()> {
     let pattern = Pattern::from_file(filename)?;
-    self.cells = iter::repeat(Cell::Dead(0)).take(self.width * self.height).collect();
     let origin = (self.width / 2, self.height / 2);
-
     for (x, y) in pattern.cells {
       let x = (x + origin.0 as isize) as usize;
       let y = (y + origin.1 as isize) as usize;
-
-      if x > 0 && x < self.width && y > 0 && y < self.height {
-        self.cells[y * self.height + x] = Cell::Alive(0);
+      if y < self.height && x < self.width {
+        self.cells[y][x] = Cell::Alive(0);
       }
     }
-    Ok(self)
+    Ok(())
   }
 
   pub fn tick(&mut self) {
@@ -48,8 +48,7 @@ impl Universe {
 
     for row in 0..self.height {
       for col in 0..self.width {
-        let idx = self.get_index(row, col);
-        let cell = self.cells[idx];
+        let cell = self.cells[row][col];
         let live_neighbors = self.live_neighbor_count(row, col);
 
         let next_cell = match (cell, live_neighbors) {
@@ -70,7 +69,7 @@ impl Universe {
           (Cell::Dead(i), _) => Cell::Dead(i.saturating_add(1)),
         };
 
-        next[idx] = next_cell;
+        next[row][col] = next_cell;
       }
     }
 
@@ -91,8 +90,7 @@ impl Universe {
 
         let neighbor_row = (row + delta_row) % self.height;
         let neighbor_col = (column + delta_col) % self.width;
-        let idx = self.get_index(neighbor_row, neighbor_col);
-        count += match self.cells[idx] {
+        count += match self.cells[neighbor_row][neighbor_col] {
           Cell::Alive(_) => 1,
           Cell::Dead(_) => 0,
         };
@@ -105,9 +103,16 @@ impl Universe {
 impl Component for Universe {
   fn init(&mut self, area: Rect) -> Result<()> {
     (self.width, self.height) = (area.width as usize, area.height as usize * 2);
-    self.cells = (0..self.width * self.height)
-      .map(|_| if rand::random::<bool>() { Cell::Alive(0) } else { Cell::Dead(0) })
-      .collect();
+    self.cells = iter::repeat(iter::repeat(Cell::Dead(0)).take(self.width).collect()).take(self.height).collect();
+    if let Some(f) = self.filename.clone() {
+      self.pattern(&f.to_string_lossy())?;
+    } else {
+      for row in 0..self.height {
+        for col in 0..self.width {
+          self.cells[row][col] = if rand::random::<bool>() { Cell::Alive(0) } else { Cell::Dead(0) };
+        }
+      }
+    }
     Ok(())
   }
 
@@ -131,13 +136,12 @@ impl Component for Universe {
   }
 
   fn draw(&mut self, f: &mut Frame<'_>, area: Rect) -> Result<()> {
-    let cells: Vec<Vec<Cell>> = self.cells.chunks(self.width).map(|chunk| chunk.to_vec()).collect();
     let mut grid = vec![];
     let young = Color::Rgb(255, 213, 57);
     let old = Color::Rgb(202, 32, 77);
     let sick = Color::Reset;
     let dead = Color::Reset;
-    for (y, (line1, line2)) in cells.iter().tuples().enumerate() {
+    for (y, (line1, line2)) in self.cells.iter().tuples().enumerate() {
       for (x, (c1, c2)) in line1.iter().zip(line2.iter()).enumerate() {
         match (c1, c2) {
           (Cell::Alive(0), Cell::Alive(0)) => {

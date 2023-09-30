@@ -3,7 +3,7 @@ use std::{fs::File, io::Read};
 
 use color_eyre::eyre::Result;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Cell {
   Dead(usize),
   Alive(usize),
@@ -36,6 +36,15 @@ impl std::ops::Not for Cell {
   }
 }
 
+impl std::fmt::Display for Cell {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match *self {
+      Cell::Dead(_) => write!(f, " "),
+      Cell::Alive(_) => write!(f, "●"),
+    }
+  }
+}
+
 /// Describes what type of file it is based on the file extension.
 pub enum FileType {
   Life,
@@ -64,6 +73,7 @@ pub struct Pattern {
   pub name: Option<String>,
   pub description: Option<String>,
   pub author: Option<String>,
+  pub area: Option<(usize, usize)>,
 }
 
 impl Pattern {
@@ -136,7 +146,17 @@ pub fn parse_rle_file(s: &str) -> Result<Pattern> {
 
   // x = m, y = n
   let _header = match lines.next() {
-    Some(v) => v,
+    Some(v) => {
+      if v.contains("x = ") && v.contains("y = ") {
+        let v: Vec<&str> = v.splitn(3, ", ").collect();
+        let x = v[0];
+        let y = v[1];
+        log::info!("{x} {y}");
+        let x = x.replace("x = ", "").parse::<usize>()?;
+        let y = y.replace("y = ", "").parse::<usize>()?;
+        pattern.area = Some((x, y));
+      }
+    },
     None => {
       return Err(color_eyre::eyre::eyre!(
         "The header for this `.rle` file could not be found because there were no (uncommented) lines.",
