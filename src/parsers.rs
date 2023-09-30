@@ -145,7 +145,6 @@ pub fn parse_rle_file(s: &str) -> Result<Pattern> {
         let v: Vec<&str> = v.splitn(3, ", ").collect();
         let x = v[0];
         let y = v[1];
-        log::info!("{x} {y}");
         let x = x.replace("x = ", "").parse::<usize>()?;
         let y = y.replace("y = ", "").parse::<usize>()?;
         pattern.area = Some((x, y));
