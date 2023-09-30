@@ -16,6 +16,11 @@ pub enum Action {
   Refresh,
   Error(String),
   Help,
+  TogglePause,
+  Insert(usize, usize),
+  UseHalfBlockUpper,
+  UseHalfBlockLower,
+  UseHalfBlockFull,
 }
 
 impl<'de> Deserialize<'de> for Action {

@@ -2,6 +2,7 @@ use std::{iter, path::PathBuf};
 
 // Based on https://rustwasm.github.io/book/game-of-life/introduction.html
 use color_eyre::eyre::Result;
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEventKind};
 use itertools::Itertools;
 use ratatui::{prelude::*, widgets::*};
 use tokio::sync::mpsc::UnboundedSender;
@@ -14,6 +15,14 @@ use crate::{
 };
 
 #[derive(Default)]
+enum HalfBlock {
+  #[default]
+  Full,
+  Upper,
+  Lower,
+}
+
+#[derive(Default)]
 pub struct Universe {
   command_tx: Option<UnboundedSender<Action>>,
   config: Config,
@@ -21,6 +30,8 @@ pub struct Universe {
   height: usize,
   cells: Vec<Vec<Cell>>,
   filename: Option<PathBuf>,
+  paused: bool,
+  half_block: HalfBlock,
 }
 
 impl Universe {
@@ -124,10 +135,71 @@ impl Component for Universe {
     Ok(())
   }
 
+  fn handle_mouse_events(&mut self, mouse: crossterm::event::MouseEvent) -> Result<Option<Action>> {
+    match mouse.kind {
+      MouseEventKind::Down(MouseButton::Left) => {
+        match self.half_block {
+          HalfBlock::Upper => {
+            self.command_tx.as_ref().unwrap().send(Action::Insert(mouse.row as usize * 2, mouse.column as usize))?;
+          },
+          HalfBlock::Lower => {
+            self.command_tx.as_ref().unwrap().send(Action::Insert(mouse.row as usize * 2 + 1, mouse.column as usize))?
+          },
+          HalfBlock::Full => {
+            self.command_tx.as_ref().unwrap().send(Action::Insert(mouse.row as usize * 2, mouse.column as usize))?;
+            self.command_tx.as_ref().unwrap().send(Action::Insert(mouse.row as usize * 2 + 1, mouse.column as usize))?
+          },
+        }
+      },
+      MouseEventKind::Drag(MouseButton::Left) => {
+        match self.half_block {
+          HalfBlock::Upper => {
+            self.command_tx.as_ref().unwrap().send(Action::Insert(mouse.row as usize * 2, mouse.column as usize))?;
+          },
+          HalfBlock::Lower => {
+            self.command_tx.as_ref().unwrap().send(Action::Insert(mouse.row as usize * 2 + 1, mouse.column as usize))?
+          },
+          HalfBlock::Full => {
+            self.command_tx.as_ref().unwrap().send(Action::Insert(mouse.row as usize * 2, mouse.column as usize))?;
+            self.command_tx.as_ref().unwrap().send(Action::Insert(mouse.row as usize * 2 + 1, mouse.column as usize))?
+          },
+        }
+      },
+      _ => (),
+    };
+    Ok(None)
+  }
+
+  fn handle_key_events(&mut self, key: crossterm::event::KeyEvent) -> Result<Option<Action>> {
+    log::info!("{:?}", key);
+    if key.kind == KeyEventKind::Press {
+      match key.code {
+        KeyCode::Char(' ') => Ok(Some(Action::TogglePause)),
+        KeyCode::Char('1') => Ok(Some(Action::UseHalfBlockFull)),
+        KeyCode::Char('2') => Ok(Some(Action::UseHalfBlockUpper)),
+        KeyCode::Char('3') => Ok(Some(Action::UseHalfBlockLower)),
+        _ => Ok(None),
+      }
+    } else {
+      Ok(None)
+    }
+  }
+
   fn update(&mut self, action: Action) -> Result<Option<Action>> {
     match action {
-      Action::Tick => self.tick(),
+      Action::Tick => {
+        if !self.paused {
+          self.tick()
+        }
+      },
+      Action::Insert(r, c) => {
+        self.cells[r][c] = Cell::Alive(0);
+      },
+      Action::TogglePause => self.paused = !self.paused,
       Action::Resize(w, h) => self.init(Rect::new(0, 0, w, h))?,
+      Action::UseHalfBlockUpper => self.half_block = HalfBlock::Upper,
+      Action::UseHalfBlockLower => self.half_block = HalfBlock::Lower,
+      Action::UseHalfBlockFull => self.half_block = HalfBlock::Full,
       _ => {},
     }
     Ok(None)

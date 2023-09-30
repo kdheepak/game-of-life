@@ -55,6 +55,7 @@ impl App {
     let mut tui = tui::Tui::new()?;
     tui.tick_rate(self.tick_rate);
     tui.frame_rate(self.frame_rate);
+    tui.mouse(true);
     tui.enter()?;
 
     for component in self.components.iter_mut() {
@@ -149,6 +150,7 @@ impl App {
         tui = tui::Tui::new()?;
         tui.tick_rate(self.tick_rate);
         tui.frame_rate(self.frame_rate);
+        tui.mouse(true);
         tui.enter()?;
       } else if self.should_quit {
         tui.stop()?;
