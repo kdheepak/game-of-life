@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use color_eyre::eyre::Result;
 use crossterm::event::KeyEvent;
 use ratatui::prelude::Rect;
@@ -29,8 +31,11 @@ pub struct App {
 }
 
 impl App {
-  pub fn new(tick_rate: f64, frame_rate: f64) -> Result<Self> {
-    let home = Universe::new();
+  pub fn new(tick_rate: f64, frame_rate: f64, filename: Option<PathBuf>) -> Result<Self> {
+    let home = match filename {
+      Some(f) => Universe::new().from_pattern(&f.to_string_lossy())?,
+      None => Universe::new(),
+    };
     let config = Config::new()?;
     let mode = Mode::Home;
     Ok(Self {

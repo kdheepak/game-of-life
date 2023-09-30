@@ -1,3 +1,5 @@
+use std::iter;
+
 // Based on https://rustwasm.github.io/book/game-of-life/introduction.html
 use color_eyre::eyre::Result;
 use itertools::Itertools;
@@ -5,13 +7,11 @@ use ratatui::{prelude::*, widgets::*};
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::{Component, Frame};
-use crate::{action::Action, config::Config};
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Cell {
-  Dead(usize),
-  Alive(usize),
-}
+use crate::{
+  action::Action,
+  config::Config,
+  parsers::{Cell, Pattern},
+};
 
 #[derive(Default)]
 pub struct Universe {
@@ -25,6 +25,22 @@ pub struct Universe {
 impl Universe {
   pub fn new() -> Self {
     Self::default()
+  }
+
+  pub fn from_pattern(mut self, filename: &str) -> Result<Self> {
+    let pattern = Pattern::from_file(filename)?;
+    self.cells = iter::repeat(Cell::Dead(0)).take(self.width * self.height).collect();
+    let origin = (self.width / 2, self.height / 2);
+
+    for (x, y) in pattern.cells {
+      let x = (x + origin.0 as isize) as usize;
+      let y = (y + origin.1 as isize) as usize;
+
+      if x > 0 && x < self.width && y > 0 && y < self.height {
+        self.cells[y * self.height + x] = Cell::Alive(0);
+      }
+    }
+    Ok(self)
   }
 
   pub fn tick(&mut self) {
@@ -89,11 +105,9 @@ impl Universe {
 impl Component for Universe {
   fn init(&mut self, area: Rect) -> Result<()> {
     (self.width, self.height) = (area.width as usize, area.height as usize * 2);
-
     self.cells = (0..self.width * self.height)
       .map(|_| if rand::random::<bool>() { Cell::Alive(0) } else { Cell::Dead(0) })
       .collect();
-
     Ok(())
   }
 
