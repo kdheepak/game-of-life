@@ -8,7 +8,7 @@ use tokio::sync::mpsc;
 
 use crate::{
   action::Action,
-  components::{universe::Universe, Component},
+  components::{fps::FpsCounter, universe::Universe, Component},
   config::Config,
   tui,
 };
@@ -33,13 +33,14 @@ pub struct App {
 
 impl App {
   pub fn new(tick_rate: f64, frame_rate: f64, filename: Option<PathBuf>) -> Result<Self> {
-    let home = Universe::new(filename.clone());
+    let universe = Universe::new(filename.clone());
+    let fps = FpsCounter::default();
     let config = Config::new()?;
     let mode = Mode::Home;
     Ok(Self {
       tick_rate,
       frame_rate,
-      components: vec![Box::new(home)],
+      components: vec![Box::new(universe), Box::new(fps)],
       should_quit: false,
       should_suspend: false,
       config,
