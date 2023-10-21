@@ -18,7 +18,11 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-pub type Frame<'a> = ratatui::Frame<'a, Backend<std::io::Stdout>>;
+pub type IO = std::io::Stdout;
+pub type Frame<'a> = ratatui::Frame<'a, Backend<IO>>;
+pub fn io() -> IO {
+  std::io::stdout()
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Event {
@@ -37,7 +41,7 @@ pub enum Event {
 }
 
 pub struct Tui {
-  pub terminal: ratatui::Terminal<Backend<std::io::Stdout>>,
+  pub terminal: ratatui::Terminal<Backend<IO>>,
   pub task: JoinHandle<()>,
   pub cancellation_token: CancellationToken,
   pub event_rx: UnboundedReceiver<Event>,
@@ -51,7 +55,7 @@ impl Tui {
   pub fn new() -> Result<Self> {
     let tick_rate = 4.0;
     let frame_rate = 60.0;
-    let terminal = ratatui::Terminal::new(Backend::new(std::io::stdout()))?;
+    let terminal = ratatui::Terminal::new(Backend::new(io()))?;
     let (event_tx, event_rx) = mpsc::unbounded_channel();
     let cancellation_token = CancellationToken::new();
     let task = tokio::spawn(async {});
@@ -153,9 +157,9 @@ impl Tui {
 
   pub fn enter(&mut self) -> Result<()> {
     crossterm::terminal::enable_raw_mode()?;
-    crossterm::execute!(std::io::stdout(), EnterAlternateScreen, cursor::Hide)?;
+    crossterm::execute!(io(), EnterAlternateScreen, cursor::Hide)?;
     if self.mouse {
-      crossterm::execute!(std::io::stdout(), EnableMouseCapture)?;
+      crossterm::execute!(io(), EnableMouseCapture)?;
     }
     self.start();
     Ok(())
@@ -166,9 +170,9 @@ impl Tui {
     if crossterm::terminal::is_raw_mode_enabled()? {
       self.flush()?;
       if self.mouse {
-        crossterm::execute!(std::io::stdout(), DisableMouseCapture)?;
+        crossterm::execute!(io(), DisableMouseCapture)?;
       }
-      crossterm::execute!(std::io::stdout(), LeaveAlternateScreen, cursor::Show)?;
+      crossterm::execute!(io(), LeaveAlternateScreen, cursor::Show)?;
       crossterm::terminal::disable_raw_mode()?;
     }
     Ok(())
@@ -196,7 +200,7 @@ impl Tui {
 }
 
 impl Deref for Tui {
-  type Target = ratatui::Terminal<Backend<std::io::Stdout>>;
+  type Target = ratatui::Terminal<Backend<IO>>;
 
   fn deref(&self) -> &Self::Target {
     &self.terminal
